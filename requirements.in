@@ -1,0 +1,5 @@
+# Direct dependencies. requirements.txt records the verified exact versions.
+PySide6>=6.10,<7
+mutagen>=1.47,<2
+pypinyin>=0.55,<1
+pyobjc-framework-Cocoa>=12,<13; sys_platform == "darwin"

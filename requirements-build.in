@@ -1,0 +1,2 @@
+-r requirements.in
+Nuitka==4.1.1
