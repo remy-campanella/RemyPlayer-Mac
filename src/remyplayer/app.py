@@ -52,6 +52,9 @@ class AppController(QObject):
         self.errors = []
         self.scan_root = ""
         self.tray = None
+        self.tray_watchdog = QTimer(self)
+        self.tray_watchdog.setInterval(2000)
+        self.tray_watchdog.timeout.connect(self.ensure_background_access)
         icon = QIcon(str(Path(__file__).parent / "resources" / "icon.svg"))
         self.window.setWindowIcon(icon)
         self.application.setWindowIcon(icon)
@@ -118,12 +121,27 @@ class AppController(QObject):
                 action.setShortcut(QKeySequence(shortcut))
             action.triggered.connect(callback)
             menu.addAction(action)
-        if not QSystemTrayIcon.isSystemTrayAvailable():
+        if sys.platform == "darwin":
+            try:
+                from remyplayer.platform_macos.status_item import NativeStatusItem
+                self.tray = NativeStatusItem(
+                    self.show, self.window._play, self.playback.previous,
+                    self.playback.next, self.quit,
+                )
+            except Exception as error:
+                self.window.status.setText(f"菜单栏入口创建失败，将保留主窗口：{error}")
+        elif QSystemTrayIcon.isSystemTrayAvailable():
+            self._qt_tray()
+        if self.tray is None:
             self.application.setQuitOnLastWindowClosed(True)
-            self.window.status.setText("系统菜单栏不可用，关闭窗口将退出程序。")
+            self.window.status.setText(self.window.status.text() + "；关闭窗口将退出程序。")
             return
         self.application.setQuitOnLastWindowClosed(False)
         self.window.allow_hide = True
+        self.playback.trackChanged.connect(lambda track: self.tray.setToolTip(f"RemyPlayer · {track.title}"))
+        self.tray_watchdog.start()
+
+    def _qt_tray(self):
         self.tray = QSystemTrayIcon(tray_icon(), self)
         self.tray.setToolTip(f"RemyPlayer {__version__}")
         self.tray_menu = QMenu()
@@ -134,8 +152,21 @@ class AppController(QObject):
         self.tray_menu.addSeparator()
         self.tray_menu.addAction("退出 RemyPlayer", self.quit)
         self.tray.setContextMenu(self.tray_menu)
-        self.playback.trackChanged.connect(lambda track: self.tray.setToolTip(f"RemyPlayer · {track.title}"))
         self.tray.show()
+
+    def tray_accessible(self):
+        if self.tray is None:
+            return False
+        try:
+            check = getattr(self.tray, "is_accessible", self.tray.isVisible)
+            return bool(check())
+        except Exception:
+            return False
+
+    def ensure_background_access(self):
+        if not self._shutting_down and not self.window.isVisible() and not self.tray_accessible():
+            self.show()
+            self.window.status.setText("菜单栏入口不可用，已恢复窗口和 Dock，防止无法找回播放器。")
 
     def show(self):
         if self.desktop:
@@ -145,8 +176,14 @@ class AppController(QObject):
         self.window.activateWindow()
 
     def hide_dock(self):
-        if self.desktop and self.tray and not self.window.keep_dock.isChecked():
+        if not self.desktop:
+            return
+        if not self.tray_accessible():
+            self.ensure_background_access()
+        elif not self.window.keep_dock.isChecked():
             self._dock(False)
+            # Activation-policy changes can affect the native menu-bar layout.
+            QTimer.singleShot(250, self.ensure_background_access)
 
     def _dock(self, visible):
         try:
@@ -229,6 +266,7 @@ class AppController(QObject):
         if self._shutting_down:
             return
         self._shutting_down = True
+        self.tray_watchdog.stop()
         self.window.quitting = True
         self.settings.setValue("window/geometry", self.window.saveGeometry())
         self.settings.sync()
@@ -245,13 +283,20 @@ def main(argv=None):
     parser.add_argument("--library", type=Path, help="启动时扫描指定音乐库")
     parser.add_argument("--smoke-test", action="store_true", help="无桌面集成地初始化界面并退出")
     parser.add_argument("--screenshot", type=Path, help="保存界面截图（可与 --smoke-test 合用）")
+    parser.add_argument("--check-desktop", action="store_true", help="验证真实菜单栏恢复入口后退出")
     args = parser.parse_args(argv)
+    if args.check_desktop and (args.smoke_test or not args.data_dir):
+        parser.error("--check-desktop 需要独立的 --data-dir，且不能与 --smoke-test 合用")
     application = QApplication([sys.argv[0]])
     application.setApplicationName("RemyPlayer")
     application.setOrganizationName("Remygrad")
     application.setApplicationVersion(__version__)
     controller = AppController(application, args.data_dir, desktop=not args.smoke_test)
     controller.window.show()
+    desktop_result = None
+    if args.check_desktop:
+        from remyplayer.services.desktop_check import schedule_desktop_check
+        desktop_result = schedule_desktop_check(controller)
 
     def capture_and_quit():
         if args.screenshot:
@@ -272,7 +317,10 @@ def main(argv=None):
         QTimer.singleShot(250, capture_and_quit)
     elif controller.root:
         QTimer.singleShot(0, controller.rescan)
-    return application.exec()
+    result = application.exec()
+    if desktop_result is not None and not desktop_result["completed"]:
+        return 1
+    return result
 
 
 if __name__ == "__main__":

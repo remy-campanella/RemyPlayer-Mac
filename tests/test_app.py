@@ -4,6 +4,7 @@ import sys
 from tempfile import TemporaryDirectory
 import time
 import unittest
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -120,6 +121,33 @@ class AppTests(unittest.TestCase):
         self.assertEqual(playback.queue.index, 1)
         self.wait_until(lambda: playback.queue.index == 0)
         playback.stop()
+
+    def test_missing_status_item_cannot_hide_window_and_dock(self):
+        controller = self.controller
+        controller.desktop = True
+        controller.window.allow_hide = True
+        controller.tray = Mock()
+        controller.tray.is_accessible.return_value = False
+        with patch.object(controller, "_dock") as dock:
+            controller.window.close()
+        self.assertTrue(controller.window.isVisible())
+        dock.assert_called_with(True)
+        self.assertIn("菜单栏入口不可用", controller.window.status.text())
+
+    def test_status_item_lost_while_backgrounded_restores_window(self):
+        controller = self.controller
+        controller.desktop = True
+        controller.window.allow_hide = True
+        controller.tray = Mock()
+        controller.tray.is_accessible.return_value = True
+        with patch.object(controller, "_dock") as dock:
+            controller.window.close()
+            self.assertFalse(controller.window.isVisible())
+            dock.assert_called_with(False)
+            controller.tray.is_accessible.return_value = False
+            controller.ensure_background_access()
+            self.assertTrue(controller.window.isVisible())
+            dock.assert_called_with(True)
 
 
 if __name__ == "__main__":
