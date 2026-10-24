@@ -19,6 +19,7 @@ python run.py
 - 空格播放／暂停（搜索框输入时除外）；曲目列表中回车播放选中项。
 - 关闭窗口后通过菜单栏继续操作，可选后台保留 Dock 图标。
 - 菜单栏“显示主窗口”恢复窗口和 Dock；“退出 RemyPlayer”结束后台进程。
+- 后台保留 Dock 时，点击 Dock 图标或从 Finder 重新打开应用会恢复主窗口。主窗口显示时始终保留 Dock，“后台保留 Dock”设置仅控制窗口关闭后的行为。
 - 系统菜单栏不可用时，关闭窗口会退出，避免隐藏后无法找回。
 
 macOS 使用原生音乐符号作为菜单栏入口，点击后选择“显示主窗口”即可恢复。首次启动将图标放在右侧，并记住之后调整的位置。关闭窗口时会检查入口是否被刘海遮挡；入口不可用或后台丢失时，自动恢复窗口和 Dock，不会留下无法找回的隐藏播放器。
@@ -60,7 +61,7 @@ python3.14 -m venv .venv
 
 `run_checks.py` 设有 45 秒超时，覆盖排序、分类、只读扫描、缓存、取消、队列和 Qt 集成。音频测试只播放静音 WAV；没有输出设备时跳过三项真实播放测试，需在能访问音频设备的环境补测。
 
-`check_desktop.py` 会短暂显示、隐藏和恢复窗口，验证菜单栏和 Dock 后退出，需要真实 macOS 桌面。
+`check_desktop.py` 会发送与 Dock 点击相同的 reopen AppleEvent，再通过原生菜单恢复窗口，并等待后台检查和延迟激活完成后确认 Dock 状态，需要真实 macOS 桌面。
 
 独立应用也可用 `dist/RemyPlayer.app/Contents/MacOS/run --check-desktop --data-dir /tmp/remyplayer-desktop-check` 验证，检查会通过原生菜单动作恢复窗口，而不是直接调用窗口的显示方法。
 

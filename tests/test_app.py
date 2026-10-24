@@ -25,6 +25,9 @@ class AppTests(unittest.TestCase):
         cls.application.setApplicationName("RemyPlayerTest")
 
     def setUp(self):
+        activation = patch("remyplayer.app.activate_application")
+        activation.start()
+        self.addCleanup(activation.stop)
         self.temp = TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.root = self.base / "music"
@@ -148,6 +151,42 @@ class AppTests(unittest.TestCase):
             controller.ensure_background_access()
             self.assertTrue(controller.window.isVisible())
             dock.assert_called_with(True)
+
+    def test_visible_window_always_keeps_dock_after_deferred_restore(self):
+        controller = self.controller
+        controller.desktop = True
+        controller.window.allow_hide = True
+        controller.tray = Mock()
+        controller.tray.is_accessible.return_value = True
+        with patch.object(controller, "_dock") as dock:
+            controller.window.keep_dock.setChecked(False)
+            controller.window.close()
+            dock.assert_called_with(False)
+            controller.request_show()
+            self.wait_until(lambda: controller.window.isVisible())
+            # Late close notifications must not demote a window already shown.
+            controller.hide_dock()
+            dock.assert_called_with(True)
+            self.wait_until(lambda: not controller.dock_sync.isActive())
+            dock.assert_called_with(True)
+
+    def test_keep_dock_preference_only_applies_to_closed_window(self):
+        controller = self.controller
+        controller.desktop = True
+        controller.window.allow_hide = True
+        controller.tray = Mock()
+        controller.tray.is_accessible.return_value = True
+        with patch.object(controller, "_dock") as dock:
+            controller.window.keep_dock.setChecked(True)
+            controller.window.close()
+            self.assertFalse(controller.window.isVisible())
+            dock.assert_called_with(True)
+            controller.request_show()
+            self.wait_until(lambda: controller.window.isVisible())
+            controller.window.keep_dock.setChecked(False)
+            dock.assert_called_with(True)
+            controller.window.close()
+            dock.assert_called_with(False)
 
 
 if __name__ == "__main__":

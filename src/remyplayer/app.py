@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QMessageBox, QSy
 from remyplayer import __version__
 from remyplayer.domain.queue import PlayMode
 from remyplayer.infrastructure.library import TrackRepository
-from remyplayer.platform_macos import set_dock_visible
+from remyplayer.platform_macos import activate_application, set_dock_visible
 from remyplayer.services.library import LibraryService
 from remyplayer.services.playback import PlaybackService
 from remyplayer.ui.window import MainWindow
@@ -52,6 +52,10 @@ class AppController(QObject):
         self.errors = []
         self.scan_root = ""
         self.tray = None
+        self.reopen_handler = None
+        self.dock_sync = QTimer(self)
+        self.dock_sync.setSingleShot(True)
+        self.dock_sync.timeout.connect(self.sync_dock)
         self.tray_watchdog = QTimer(self)
         self.tray_watchdog.setInterval(2000)
         self.tray_watchdog.timeout.connect(self.ensure_background_access)
@@ -62,6 +66,8 @@ class AppController(QObject):
         self._restore()
         if desktop:
             self._desktop_menu()
+            # Register after Cocoa/Qt have installed their launch-time handlers.
+            QTimer.singleShot(0, self.install_reopen_handler)
         self.application.aboutToQuit.connect(self.shutdown)
 
     def _connect(self):
@@ -125,7 +131,7 @@ class AppController(QObject):
             try:
                 from remyplayer.platform_macos.status_item import NativeStatusItem
                 self.tray = NativeStatusItem(
-                    self.show, self.window._play, self.playback.previous,
+                    self.request_show, self.window._play, self.playback.previous,
                     self.playback.next, self.quit,
                 )
             except Exception as error:
@@ -145,7 +151,7 @@ class AppController(QObject):
         self.tray = QSystemTrayIcon(tray_icon(), self)
         self.tray.setToolTip(f"RemyPlayer {__version__}")
         self.tray_menu = QMenu()
-        self.tray_menu.addAction("显示主窗口", self.show)
+        self.tray_menu.addAction("显示主窗口", self.request_show)
         self.tray_toggle = self.tray_menu.addAction("播放 / 暂停", self.window._play)
         self.tray_menu.addAction("上一首", self.playback.previous)
         self.tray_menu.addAction("下一首", self.playback.next)
@@ -164,24 +170,52 @@ class AppController(QObject):
             return False
 
     def ensure_background_access(self):
+        self.sync_dock()
         if not self._shutting_down and not self.window.isVisible() and not self.tray_accessible():
             self.show()
             self.window.status.setText("菜单栏入口不可用，已恢复窗口和 Dock，防止无法找回播放器。")
 
+    def install_reopen_handler(self):
+        if self._shutting_down or sys.platform != "darwin" or self.reopen_handler:
+            return
+        from remyplayer.platform_macos.reopen import ReopenHandler
+        self.reopen_handler = ReopenHandler(self.request_show)
+
+    def request_show(self):
+        # Finish the native status-menu / AppleEvent callback before changing
+        # activation policy or activating Qt windows.
+        QTimer.singleShot(0, self.show)
+
     def show(self):
+        if self._shutting_down:
+            return
         if self.desktop:
             self._dock(True)
         self.window.showNormal()
+        if self.desktop:
+            activate_application()
         self.window.raise_()
         self.window.activateWindow()
+        self.sync_dock()
+        self.dock_sync.start(200)
+
+    def sync_dock(self):
+        if self.desktop and not self._shutting_down:
+            # A visible (including minimized) main window always owns a Dock
+            # entry. The preference applies only while the window is closed.
+            self._dock(self.window.isVisible() or self.window.keep_dock.isChecked())
 
     def hide_dock(self):
         if not self.desktop:
             return
+        if self.window.isVisible():
+            self.sync_dock()
+            return
         if not self.tray_accessible():
             self.ensure_background_access()
-        elif not self.window.keep_dock.isChecked():
-            self._dock(False)
+        else:
+            self.sync_dock()
+            self.dock_sync.start(200)
             # Activation-policy changes can affect the native menu-bar layout.
             QTimer.singleShot(250, self.ensure_background_access)
 
@@ -194,11 +228,9 @@ class AppController(QObject):
 
     def set_dock_preference(self, keep):
         self.settings.setValue("desktop/keep_dock", keep)
-        if self.desktop and not self.window.isVisible():
-            if keep:
-                self._dock(True)
-            else:
-                self.hide_dock()
+        if self.desktop:
+            self.sync_dock()
+            self.dock_sync.start(200)
 
     def set_volume(self, volume):
         self.playback.output.setVolume(volume / 100)
@@ -267,6 +299,9 @@ class AppController(QObject):
             return
         self._shutting_down = True
         self.tray_watchdog.stop()
+        self.dock_sync.stop()
+        if self.reopen_handler:
+            self.reopen_handler.close()
         self.window.quitting = True
         self.settings.setValue("window/geometry", self.window.saveGeometry())
         self.settings.sync()

@@ -9,4 +9,15 @@ def set_dock_visible(visible):
 
     application = NSApplication.sharedApplication()
     policy = NSApplicationActivationPolicyRegular if visible else NSApplicationActivationPolicyAccessory
+    if application.activationPolicy() == policy:
+        return True
     return bool(application.setActivationPolicy_(policy))
+
+
+def activate_application():
+    if sys.platform == "darwin":
+        from AppKit import NSApplication
+
+        application = NSApplication.sharedApplication()
+        application.unhide_(None)
+        application.activateIgnoringOtherApps_(True)
