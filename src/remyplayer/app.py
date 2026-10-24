@@ -52,6 +52,7 @@ class AppController(QObject):
         self.errors = []
         self.scan_root = ""
         self.tray = None
+        self.dock_icon = None
         self.reopen_handler = None
         self.dock_sync = QTimer(self)
         self.dock_sync.setSingleShot(True)
@@ -59,9 +60,13 @@ class AppController(QObject):
         self.tray_watchdog = QTimer(self)
         self.tray_watchdog.setInterval(2000)
         self.tray_watchdog.timeout.connect(self.ensure_background_access)
-        icon = QIcon(str(Path(__file__).parent / "resources" / "icon.svg"))
-        self.window.setWindowIcon(icon)
-        self.application.setWindowIcon(icon)
+        if sys.platform != "darwin":
+            icon = QIcon(str(Path(__file__).parent / "resources" / "icon.svg"))
+            self.window.setWindowIcon(icon)
+            self.application.setWindowIcon(icon)
+        elif desktop:
+            from remyplayer.platform_macos.application_icon import ApplicationIcon
+            self.dock_icon = ApplicationIcon(Path(__file__).parent / "resources" / "icon.icns")
         self._connect()
         self._restore()
         if desktop:
@@ -197,6 +202,8 @@ class AppController(QObject):
         self.window.raise_()
         self.window.activateWindow()
         self.sync_dock()
+        if self.desktop and self.dock_icon:
+            self.dock_icon.apply(force=True)
         self.dock_sync.start(200)
 
     def sync_dock(self):
@@ -223,6 +230,8 @@ class AppController(QObject):
         try:
             if not set_dock_visible(visible):
                 self.window.status.setText("系统未接受 Dock 显示设置。")
+            elif visible and self.dock_icon:
+                self.dock_icon.apply()
         except Exception as error:
             self.window.status.setText(f"Dock 设置失败：{error}")
 
@@ -327,7 +336,7 @@ def main(argv=None):
     application.setOrganizationName("Remygrad")
     application.setApplicationVersion(__version__)
     controller = AppController(application, args.data_dir, desktop=not args.smoke_test)
-    controller.window.show()
+    controller.show()
     desktop_result = None
     if args.check_desktop:
         from remyplayer.services.desktop_check import schedule_desktop_check

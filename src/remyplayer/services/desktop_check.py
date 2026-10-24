@@ -1,5 +1,6 @@
 """Exercise Dock reopen AppleEvents and delayed native menu recovery."""
 import gc
+import hashlib
 import os
 import sys
 
@@ -8,6 +9,20 @@ from PySide6.QtCore import QTimer
 
 def schedule_desktop_check(controller):
     result = {"completed": False, "error": ""}
+    initial_icon_sizes = None
+
+    def icon_sizes():
+        if sys.platform != "darwin":
+            return None
+        from AppKit import NSApplication
+        image = NSApplication.sharedApplication().applicationIconImage()
+        assert controller.dock_icon is not None, "原生 ICNS 图标未加载"
+        sizes = sorted((int(rep.pixelsWide()), int(rep.pixelsHigh())) for rep in image.representations())
+        assert (1024, 1024) in sizes, f"Dock 图标丢失最高分辨率表示：{sizes}"
+        # The native getter can return a snapshot. Compare its actual pixels,
+        # logical dimensions and resolution instead of its object identity.
+        digest = hashlib.sha256(bytes(image.TIFFRepresentation())).hexdigest()
+        return sizes, tuple(image.size()), digest
 
     def checked(callback):
         try:
@@ -22,9 +37,13 @@ def schedule_desktop_check(controller):
             from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular
             expected = NSApplicationActivationPolicyRegular if visible else NSApplicationActivationPolicyAccessory
             assert NSApplication.sharedApplication().activationPolicy() == expected, f"Dock visibility should be {visible}"
+            if visible and initial_icon_sizes is not None:
+                assert icon_sizes() == initial_icon_sizes, "Dock 恢复后 ICNS 表示与启动时不同"
 
     def dock_reopen():
+        nonlocal initial_icon_sizes
         assert controller.tray_accessible(), "菜单栏没有可点击的屏幕入口"
+        initial_icon_sizes = icon_sizes()
         controller.window.keep_dock.setChecked(True)
         controller.window.close()
         assert not controller.window.isVisible(), "窗口未隐藏"
@@ -73,7 +92,7 @@ def schedule_desktop_check(controller):
         policy(True)
         assert controller.tray_accessible(), "恢复窗口后菜单栏入口丢失"
         result["completed"] = True
-        print("OK: actual Dock reopen event, retained Dock, menu restore and persistent foreground Dock", flush=True)
+        print("OK: Dock reopen, menu restore, persistent Dock and identical full-resolution ICNS representations", flush=True)
         QTimer.singleShot(100, controller.quit)
 
     def timeout():
