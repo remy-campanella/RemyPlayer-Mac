@@ -1,6 +1,8 @@
 import os
+import json
 from pathlib import Path
 import sys
+import shutil
 from tempfile import TemporaryDirectory
 import time
 import unittest
@@ -187,6 +189,31 @@ class AppTests(unittest.TestCase):
             dock.assert_called_with(True)
             controller.window.close()
             dock.assert_called_with(False)
+
+    def test_theme_switch_updates_native_palette_and_playing_row(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QPalette
+        from remyplayer.ui.theme import THEME_DIRECTORY
+        self.scan()
+        window = self.controller.window
+        window.set_track(window.tracks[0])
+        window.search.setText("2.wav")
+        alternative = self.base / "themes"
+        shutil.copytree(THEME_DIRECTORY, alternative)
+        data = json.loads((alternative / "black_gold.json").read_text())
+        data.update(id="preview", name="Preview", dark=False)
+        data["colors"].update(background="#f0f1f2", accent="#315a8c")
+        (alternative / "preview.json").write_text(json.dumps(data))
+        try:
+            with patch("remyplayer.ui.theme.THEME_DIRECTORY", alternative):
+                window.apply_theme("preview")
+            self.assertEqual(self.application.palette().color(QPalette.ColorRole.Window).name(), "#f0f1f2")
+            self.assertEqual(window.model.data(window.model.index(0, 0), Qt.ItemDataRole.ForegroundRole).name(), "#315a8c")
+            self.assertEqual(window.search.text(), "2.wav")
+            self.assertEqual(window.model.rowCount(), 1)
+            self.assertIn("#315a8c", (Path(window.theme.assets.name) / "chevron.svg").read_text())
+        finally:
+            window.apply_theme("black_gold")
 
 
 if __name__ == "__main__":

@@ -75,6 +75,19 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python run.py --smoke-test --data-dir /tmp/r
 
 可添加 `--library /path/to/music`，扫描完成后截图。测试请使用独立设置目录。
 
+## 界面主题
+
+当前默认使用与图标呼应的黑金主题。样式资源独立于界面业务代码：
+
+- `src/remyplayer/resources/themes/base.qss`：控件样式、布局装饰及交互状态，使用颜色变量。
+- `src/remyplayer/resources/themes/black_gold.json`：主题名称、明暗模式与全部颜色。
+- 同目录下的 SVG 模板：下拉箭头与勾选标记，运行时按主题颜色生成到临时目录。
+- `src/remyplayer/ui/theme.py`：加载、校验、QPalette 与 QSS 生成。
+
+以后可复制主题 JSON，以新的文件名和相同的 `id` 保存并调整颜色；调用 `MainWindow.apply_theme("主题id")` 即可同步切换界面、原生调色板和播放曲目高亮。当前尚未添加主题选择控件，后续可将此接口接入设置并保存偏好。
+
+主题文件会随 Python 包和独立 `.app` 一起分发；生成的小图标写入临时目录，不修改安装包。
+
 ## 打包
 
 ```sh

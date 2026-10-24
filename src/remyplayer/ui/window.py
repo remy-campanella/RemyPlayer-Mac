@@ -1,15 +1,16 @@
 from pathlib import Path
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QKeySequence
+from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QPushButton,
     QSlider, QSplitter, QStackedWidget, QTableView, QVBoxLayout, QWidget,
 )
 
 from remyplayer.domain.library import format_time, group_tracks, track_key
 from remyplayer.domain.queue import PlayMode
+from remyplayer.ui.theme import DEFAULT_THEME, load_theme
 
 
 class TrackModel(QAbstractTableModel):
@@ -19,6 +20,7 @@ class TrackModel(QAbstractTableModel):
         super().__init__(parent)
         self.tracks = []
         self.current_path = None
+        self.playing_color = None
 
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.tracks)
@@ -41,7 +43,7 @@ class TrackModel(QAbstractTableModel):
             return track.path
         if track.path == self.current_path:
             if role == Qt.ItemDataRole.ForegroundRole:
-                return QColor("#21624d")
+                return self.playing_color
             if role == Qt.ItemDataRole.FontRole:
                 font = QFont()
                 font.setBold(True)
@@ -63,41 +65,6 @@ class TrackModel(QAbstractTableModel):
                 self.dataChanged.emit(self.index(row, 0), self.index(row, 4))
 
 
-STYLE = """
-QMainWindow, QWidget#root { background: #f7f6f1; color: #263a32; }
-QWidget { font-family: '.AppleSystemUIFont', 'Helvetica Neue', sans-serif; font-size: 13px; }
-QWidget#sidebar { background: #eeeee5; border-radius: 14px; }
-QLabel { color: #263a32; }
-QLabel#brand { font-size: 23px; font-weight: 700; }
-QLabel#eyebrow { color: #66756a; font-size: 11px; letter-spacing: 2px; }
-QLabel#heading { font-size: 29px; font-weight: 600; }
-QLabel#muted, QLabel#status { color: #728075; }
-QLabel#nowTitle { font-weight: 600; font-size: 15px; }
-QPushButton { background: #e9ece4; color: #284a3b; border: none; border-radius: 8px; padding: 9px 14px; }
-QPushButton:hover { background: #dce4d8; }
-QPushButton:disabled { color: #a2aaa0; background: #eeeee9; }
-QPushButton#primary { background: #285f4c; color: white; }
-QPushButton#primary:hover { background: #35745c; }
-QPushButton#play { background: #285f4c; color: white; font-size: 15px; font-weight: 600; }
-QLineEdit, QComboBox { background: #fffef9; color: #263a32; border: 1px solid #dfe2d7; border-radius: 8px; padding: 8px 10px; }
-QComboBox QAbstractItemView { background: #fffef9; color: #263a32; selection-background-color: #dce7d9; }
-QListWidget { border: none; background: transparent; outline: none; padding-top: 8px; }
-QListWidget::item { color: #45594b; padding: 11px 10px; border-radius: 8px; margin-bottom: 3px; }
-QListWidget::item:selected { background: #dbe5d6; color: #244e3c; }
-QListWidget::item:hover { background: #e2e7db; }
-QTableView { background: #fffef9; alternate-background-color: #f8f9f3; color: #35463a; border: 1px solid #e5e6dc; border-radius: 10px; gridline-color: transparent; selection-background-color: #e2ebdc; selection-color: #244e3c; outline: none; }
-QTableView::item { padding: 8px; border: none; }
-QHeaderView::section { background: #f1f3eb; color: #778171; border: none; border-bottom: 1px solid #e3e5d9; padding: 12px 8px; text-align: left; }
-QFrame#player { background: #eff1e9; border: 1px solid #e0e5d8; border-radius: 13px; }
-QSlider::groove:horizontal { height: 4px; background: #d6ded0; border-radius: 2px; }
-QSlider::sub-page:horizontal { background: #46775b; border-radius: 2px; }
-QSlider::handle:horizontal { background: #285f4c; width: 12px; height: 12px; margin: -4px 0; border-radius: 6px; }
-QSplitter::handle { background: transparent; }
-QCheckBox { color: #586a5b; }
-QToolTip { background: #fffef9; color: #263a32; border: 1px solid #dfe2d7; padding: 4px; }
-"""
-
-
 class MainWindow(QMainWindow):
     chooseRequested = Signal()
     rescanRequested = Signal()
@@ -113,12 +80,11 @@ class MainWindow(QMainWindow):
     hidden = Signal()
     errorsRequested = Signal()
 
-    def __init__(self):
+    def __init__(self, theme_name=DEFAULT_THEME):
         super().__init__()
         self.setWindowTitle("RemyPlayer · 0.0.0")
         self.resize(1180, 780)
         self.setMinimumSize(900, 620)
-        self.setStyleSheet(STYLE)
         self.tracks = []
         self.root_path = ""
         self.groups = {}
@@ -129,6 +95,19 @@ class MainWindow(QMainWindow):
         self.model = TrackModel(self)
         self._build()
         self._shortcuts()
+        self.apply_theme(theme_name)
+
+    def apply_theme(self, name):
+        theme = load_theme(name)
+        application = QApplication.instance()
+        application.styleHints().setColorScheme(
+            Qt.ColorScheme.Dark if theme.dark else Qt.ColorScheme.Light
+        )
+        application.setPalette(theme.palette())
+        application.setStyleSheet(theme.stylesheet)
+        self.theme = theme
+        self.model.playing_color = theme.color("accent")
+        self.model.set_current(self.model.current_path)
 
     def _build(self):
         root = QWidget()
@@ -225,16 +204,15 @@ class MainWindow(QMainWindow):
         empty_layout.addStretch()
         symbol = QLabel("♫")
         symbol.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        symbol.setStyleSheet("font-size: 64px; color: #8ba486;")
+        symbol.setObjectName("emptySymbol")
         empty_layout.addWidget(symbol)
         self.empty_title = QLabel("让音乐回到你的节奏")
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_title.setStyleSheet("font-size: 21px; font-weight: 600;")
+        self.empty_title.setObjectName("emptyTitle")
         empty_layout.addWidget(self.empty_title)
         self.empty_text = QLabel("选择音乐文件夹，自动整理文件夹、作者与专辑。\n只读取音乐，不修改原文件。")
         self.empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_text.setObjectName("muted")
-        self.empty_text.setStyleSheet("line-height: 1.6; padding: 12px;")
+        self.empty_text.setObjectName("emptyText")
         self.empty_text.setWordWrap(True)
         empty_layout.addWidget(self.empty_text)
         empty_layout.addStretch()

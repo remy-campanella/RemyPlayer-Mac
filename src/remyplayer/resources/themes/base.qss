@@ -1,0 +1,160 @@
+/* Layout and component states shared by themes. Colors come from theme JSON. */
+QWidget {
+    font-family: '.AppleSystemUIFont', 'Helvetica Neue';
+    font-size: 13px;
+    color: $text;
+}
+QMainWindow, QDialog, QWidget#root { background: $background; }
+QWidget#sidebar {
+    background: $sidebar;
+    border: 1px solid $border_subtle;
+    border-radius: 14px;
+}
+QLabel { background: transparent; }
+QLabel#brand { color: $accent; font-size: 23px; font-weight: 700; }
+QLabel#eyebrow { color: $text_muted; font-size: 11px; letter-spacing: 2px; }
+QLabel#heading { color: $accent_light; font-size: 29px; font-weight: 600; }
+QLabel#muted, QLabel#status { color: $text_muted; }
+QLabel#nowTitle { color: $accent_light; font-weight: 600; font-size: 15px; }
+QLabel#emptySymbol { color: $accent_dark; font-size: 64px; }
+QLabel#emptyTitle { color: $accent_light; font-size: 21px; font-weight: 600; }
+QLabel#emptyText { color: $text_muted; padding: 12px; }
+QPushButton {
+    background: $button;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 8px;
+    padding: 9px 14px;
+}
+QPushButton:hover { background: $button_hover; border-color: $accent_dark; }
+QPushButton:pressed { background: $button_pressed; }
+QPushButton:focus { border-color: $accent; }
+QPushButton#primary, QPushButton#play {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 $accent_light, stop:0.5 $accent, stop:1 $accent_dark);
+    color: $accent_text;
+    border: 1px solid $accent;
+    font-weight: 600;
+}
+QPushButton#primary:hover, QPushButton#play:hover {
+    background: $accent_light;
+    border-color: $accent_light;
+}
+QPushButton#primary:pressed, QPushButton#play:pressed { background: $accent_dark; }
+QPushButton#play { font-size: 15px; }
+QPushButton:disabled, QPushButton#primary:disabled, QPushButton#play:disabled {
+    color: $text_disabled;
+    background: $disabled_background;
+    border-color: $border_subtle;
+}
+QLineEdit, QComboBox {
+    background: $surface;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 8px;
+    padding: 8px 10px;
+    selection-background-color: $selection;
+    selection-color: $accent_light;
+}
+QLineEdit:focus, QComboBox:focus { border-color: $accent; }
+QLineEdit:disabled, QComboBox:disabled { color: $text_disabled; }
+QComboBox { padding-right: 28px; }
+QComboBox::drop-down {
+    width: 26px;
+    border: none;
+    background: transparent;
+}
+QComboBox::down-arrow { image: url("$asset_dir/chevron.svg"); width: 12px; height: 8px; }
+QComboBox QAbstractItemView {
+    background: $surface;
+    color: $text;
+    border: 1px solid $border;
+    selection-background-color: $selection;
+    selection-color: $accent_light;
+    outline: none;
+    padding: 4px;
+}
+QListWidget { border: none; background: transparent; outline: none; padding-top: 8px; }
+QListWidget::item {
+    color: $text_secondary;
+    padding: 11px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    margin-bottom: 3px;
+}
+QListWidget::item:hover { background: $selection_hover; }
+QListWidget::item:selected {
+    background: $selection;
+    color: $accent_light;
+    border-color: $accent_dark;
+}
+QTableView {
+    background: $surface;
+    alternate-background-color: $surface_alt;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 10px;
+    gridline-color: transparent;
+    selection-background-color: $selection;
+    selection-color: $accent_light;
+    outline: none;
+}
+QTableView::item { padding: 8px; border: none; }
+QTableView::item:hover { background: $selection_hover; }
+QTableView::item:selected { background: $selection; color: $accent_light; }
+QHeaderView { background: $header; }
+QHeaderView::section {
+    background: $header;
+    color: $text_secondary;
+    border: none;
+    border-bottom: 1px solid $border;
+    padding: 12px 8px;
+}
+QTableCornerButton::section { background: $header; border: none; }
+QFrame#player { background: $player; border: 1px solid $border; border-radius: 13px; }
+QSlider::groove:horizontal { height: 4px; background: $track; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: $accent; border-radius: 2px; }
+QSlider::handle:horizontal {
+    background: $accent;
+    border: 1px solid $accent_light;
+    width: 12px;
+    height: 12px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+QSlider::handle:horizontal:hover { background: $accent_light; }
+QSlider::groove:horizontal:disabled { background: $border; }
+QSlider::sub-page:horizontal:disabled { background: $track; }
+QSlider::handle:horizontal:disabled { background: $text_disabled; border-color: $text_disabled; }
+QSplitter::handle { background: transparent; }
+QCheckBox { color: $text_secondary; spacing: 7px; background: transparent; }
+QCheckBox::indicator {
+    width: 15px;
+    height: 15px;
+    border: 1px solid $text_muted;
+    border-radius: 4px;
+    background: $surface;
+}
+QCheckBox::indicator:hover { border-color: $accent; }
+QCheckBox::indicator:checked {
+    background: $accent;
+    border-color: $accent;
+    image: url("$asset_dir/check.svg");
+}
+QScrollBar:vertical { background: transparent; width: 10px; margin: 3px; }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 3px; }
+QScrollBar::handle:vertical { background: $scrollbar; min-height: 28px; border-radius: 2px; }
+QScrollBar::handle:horizontal { background: $scrollbar; min-width: 28px; border-radius: 2px; }
+QScrollBar::handle:hover { background: $accent_dark; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; border: none; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+QMenuBar { background: $background; color: $text; }
+QMenuBar::item:selected { background: $selection; }
+QMenu { background: $surface; color: $text; border: 1px solid $border; padding: 5px; }
+QMenu::item { padding: 7px 20px; border-radius: 4px; }
+QMenu::item:selected { background: $selection; color: $accent_light; }
+QMenu::item:disabled { color: $text_disabled; }
+QMenu::separator { height: 1px; background: $border; margin: 5px 8px; }
+QToolTip { background: $surface; color: $text; border: 1px solid $accent_dark; padding: 6px; }
+QMessageBox { background: $background; }
+QTextEdit, QPlainTextEdit { background: $surface; color: $text; border: 1px solid $border; }

@@ -1,0 +1,31 @@
+{
+  "id": "black_gold",
+  "name": "黑金",
+  "dark": true,
+  "colors": {
+    "background": "#0d0d0e",
+    "sidebar": "#141414",
+    "surface": "#191919",
+    "surface_alt": "#161616",
+    "player": "#1b1812",
+    "border": "#363027",
+    "border_subtle": "#272522",
+    "text": "#eee8dc",
+    "text_secondary": "#b9b09f",
+    "text_muted": "#a39781",
+    "text_disabled": "#756f63",
+    "accent": "#e8bf59",
+    "accent_light": "#fff0b5",
+    "accent_dark": "#b78128",
+    "accent_text": "#17120a",
+    "button": "#28241d",
+    "button_hover": "#393021",
+    "button_pressed": "#44371f",
+    "disabled_background": "#1d1c19",
+    "selection": "#3a2e18",
+    "selection_hover": "#29241a",
+    "header": "#201d17",
+    "track": "#40382a",
+    "scrollbar": "#5b4d34"
+  }
+}

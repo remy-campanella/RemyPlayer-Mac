@@ -21,4 +21,4 @@ remyplayer = "remyplayer.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-remyplayer = ["resources/*.svg", "resources/*.icns"]
+remyplayer = ["resources/*.svg", "resources/*.icns", "resources/themes/*.json", "resources/themes/*.qss", "resources/themes/*.svg"]
