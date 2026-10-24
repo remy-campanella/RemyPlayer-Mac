@@ -358,9 +358,9 @@ class MainWindow(QMainWindow):
         self.group_list.addItem(all_item)
         selected = 0
         for key, tracks in self.groups.items():
-            label = Path(self.root_path).name if key == "." and self.category.currentData() == "folder" else key
+            label, tooltip = self.group_display(key)
             item = QListWidgetItem(f"{label}  ·  {len(tracks)}")
-            item.setToolTip(key)
+            item.setToolTip(tooltip)
             item.setData(Qt.ItemDataRole.UserRole, key)
             self.group_list.addItem(item)
             if key == old:
@@ -368,6 +368,14 @@ class MainWindow(QMainWindow):
         self.group_list.setCurrentRow(selected)
         self.group_list.blockSignals(False)
         self.refresh_tracks()
+
+    def group_display(self, key):
+        if key is None:
+            return "全部曲目", "全部曲目"
+        if self.category.currentData() == "folder":
+            path = Path(self.root_path) / key
+            return path.name or str(path), str(path)
+        return key, key
 
     def refresh_tracks(self, *_):
         item = self.group_list.currentItem()
@@ -377,9 +385,9 @@ class MainWindow(QMainWindow):
         if query:
             tracks = [t for t in tracks if query in " ".join((t.filename, t.title, t.artist, t.album, t.relative_path)).casefold()]
         self.model.replace(tracks)
-        title = "全部曲目" if key is None else (Path(self.root_path).name if key == "." else key)
+        title, tooltip = self.group_display(key)
         self.heading.setText(title if self.root_path else "音乐库")
-        self.heading.setToolTip(title)
+        self.heading.setToolTip(tooltip)
         self.summary.setText(f"{len(tracks)} 首曲目  ·  {format_time(sum(t.duration for t in tracks))}  ·  文件名自然排序")
         self.pages.setCurrentIndex(0 if tracks else 1)
         self.play_list.setEnabled(bool(tracks))
