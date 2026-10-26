@@ -1,6 +1,12 @@
-# RemyPlayer 0.0.0
+# RemyPlayer 0.1.0
 
 Python + PySide6 开发的 macOS 本地音乐播放器。需求与架构见 [PROMPT.0.0.0.md](PROMPT.0.0.0.md)，本版规则与限制见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 安装 0.1.0
+
+打开 `dist/RemyPlayer-0.1.0-macos-arm64.dmg`，先退出旧版本，再将 RemyPlayer 拖入 Applications，复制完成后推出镜像。支持 Apple Silicon Mac，macOS 14 或更新版本；本包为本地临时签名，尚未进行 Developer ID 签名或 Apple 公证。
+
+复现发布构建：先运行 `.venv/bin/python scripts/build_app.py --no-install`，再运行 `.venv/bin/python scripts/build_dmg.py`。后者验证应用版本和签名、创建并校验镜像、挂载后检查安装内容，并生成 SHA-256 校验文件。
 
 ## 启动
 
@@ -16,7 +22,9 @@ python run.py
 选择音乐文件夹后自动扫描，双击曲目或点击“播放此列表”开始播放。左侧按文件夹、作者、专辑浏览；搜索框筛选当前列表。浏览和搜索不改变正在播放的队列。
 
 - ⌘O 选择音乐库；⌘R 重新扫描；⌘F 搜索；⌘Q 退出。
-- 空格播放／暂停（搜索框输入时除外）；曲目列表中回车播放选中项。
+- 空格播放／暂停；← 后退 10 秒，→ 前进 10 秒，超过边界时停在开头／结尾。搜索框输入时保留文字编辑按键；曲目列表中回车播放选中项。
+- 点击搜索框外的标题、空白区域或控件即可结束输入占用，恢复播放快捷键。
+- 播放中默认输出设备发生变化（包括耳机断开）时先暂停，再更新输出设备，需手动恢复播放；不会自动开始外放。
 - 关闭窗口后通过菜单栏继续操作，可选后台保留 Dock 图标。
 - 菜单栏“显示主窗口”恢复窗口和 Dock；“退出 RemyPlayer”结束后台进程。
 - 后台保留 Dock 时，点击 Dock 图标或从 Finder 重新打开应用会恢复主窗口。主窗口显示时始终保留 Dock，“后台保留 Dock”设置仅控制窗口关闭后的行为。

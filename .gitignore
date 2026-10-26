@@ -10,3 +10,7 @@ deployment/
 *.build/
 *.dist/
 *.app/
+PROMPT*
+
+# Local icon design backups
+src/remyplayer/resources/icon.old.*

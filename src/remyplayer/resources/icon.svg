@@ -1,5 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-<rect x="2" y="2" width="60" height="60" rx="18" fill="#275d50"/>
-<path d="M27 18v27m0-24 20-5v24M27 27l20-5" fill="none" stroke="#f1ebd9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<ellipse cx="21" cy="45" rx="7" ry="5" fill="#f1ebd9"/><ellipse cx="41" cy="40" rx="7" ry="5" fill="#f1ebd9"/>
+  <title>RemyPlayer — metallic gold Roman bold R</title>
+  <defs>
+    <linearGradient id="metallicGold" x1="20" y1="17" x2="43" y2="47" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b57b25"/>
+      <stop offset="0.22" stop-color="#f5d77d"/>
+      <stop offset="0.40" stop-color="#fff4bf"/>
+      <stop offset="0.48" stop-color="#e8bf59"/>
+      <stop offset="0.54" stop-color="#9b651d"/>
+      <stop offset="0.65" stop-color="#d4a43e"/>
+      <stop offset="0.82" stop-color="#ffe69a"/>
+      <stop offset="1" stop-color="#b78128"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="#000000"/>
+  <!-- Times New Roman Bold, centered and outlined for consistent rendering. -->
+  <path fill="url(#metallicGold)" fill-rule="evenodd" d="M26.980 33.348 L26.980 41.883 C26.980 43.530 27.081 44.567 27.283 44.994 C27.485 45.420 27.841 45.761 28.350 46.016 C28.859 46.270 29.810 46.397 31.203 46.397 L31.203 47.229 L15.615 47.229 L15.615 46.397 C17.022 46.397 17.977 46.266 18.479 46.004 C18.980 45.742 19.332 45.402 19.534 44.982 C19.736 44.563 19.837 43.530 19.837 41.883 L19.837 22.117 C19.837 20.470 19.736 19.433 19.534 19.006 C19.332 18.580 18.976 18.239 18.467 17.984 C17.958 17.730 17.007 17.603 15.615 17.603 L15.615 16.771 L29.765 16.771 C33.449 16.771 36.144 17.026 37.851 17.535 C39.558 18.044 40.951 18.984 42.029 20.354 C43.107 21.724 43.646 23.330 43.646 25.172 C43.646 27.418 42.837 29.275 41.220 30.742 C40.187 31.671 38.742 32.367 36.885 32.831 L44.208 43.141 C45.166 44.473 45.847 45.304 46.251 45.634 C46.865 46.098 47.577 46.353 48.385 46.397 L48.385 47.229 L38.794 47.229 L28.979 33.348 L26.980 33.348 Z M26.980 18.411 L26.980 31.753 L28.260 31.753 C30.342 31.753 31.899 31.562 32.932 31.180 C33.965 30.798 34.778 30.110 35.369 29.114 C35.961 28.118 36.256 26.819 36.256 25.217 C36.256 22.896 35.714 21.181 34.628 20.073 C33.542 18.965 31.794 18.411 29.383 18.411 L26.980 18.411 Z"/>
 </svg>

@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from PySide6.QtCore import QObject, QSettings, QStandardPaths, QTimer
-from PySide6.QtGui import QAction, QIcon, QKeySequence, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPixmap
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QMessageBox, QSystemTrayIcon
 
@@ -22,13 +22,14 @@ def tray_icon():
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(QPen(Qt.GlobalColor.black, 3))
-    painter.drawLine(16, 7, 16, 27)
-    painter.drawLine(16, 7, 29, 4)
-    painter.drawLine(29, 4, 29, 23)
-    painter.setBrush(Qt.GlobalColor.black)
-    painter.drawEllipse(7, 24, 9, 6)
-    painter.drawEllipse(20, 20, 9, 6)
+    font = QFont("Times New Roman")
+    font.setBold(True)
+    font.setPixelSize(38)
+    letter = QPainterPath()
+    letter.addText(0, 0, font, "R")
+    bounds = letter.boundingRect()
+    letter.translate(18 - bounds.center().x(), 18 - bounds.center().y())
+    painter.fillPath(letter, Qt.GlobalColor.black)
     painter.end()
     icon = QIcon(pixmap)
     icon.setIsMask(True)
@@ -85,6 +86,7 @@ class AppController(QObject):
         window.nextRequested.connect(player.next)
         window.previousRequested.connect(player.previous)
         window.seekRequested.connect(player.player.setPosition)
+        window.seekRelativeRequested.connect(player.seek_relative)
         window.volumeRequested.connect(self.set_volume)
         window.modeRequested.connect(self.set_mode)
         window.dockRequested.connect(self.set_dock_preference)

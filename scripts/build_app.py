@@ -19,6 +19,11 @@ finally:
     spec.write_text("\n".join(line.rstrip() for line in spec.read_text().splitlines()).rstrip() + "\n")
 if result == 0 and "--dry-run" not in sys.argv and "--init" not in sys.argv:
     bundle = root / "dist" / "RemyPlayer.app"
+    # Deployment may overlay an older bundle and retain excluded data files.
+    # Remove only generated copies of local icon design backups before sealing.
+    for backup in bundle.rglob("icon.old.*"):
+        if backup.is_file():
+            backup.unlink()
     # Re-seal the final copied bundle; the deploy tool's pre-copy signature can
     # be rejected by taskgated after rebuilding over an existing application.
     subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(bundle)], check=True)

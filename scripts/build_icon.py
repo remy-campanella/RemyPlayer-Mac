@@ -20,9 +20,15 @@ with TemporaryDirectory(prefix="remyplayer-icon-") as temporary:
             image = QImage(pixels, pixels, QImage.Format.Format_ARGB32_Premultiplied)
             image.fill(Qt.GlobalColor.transparent)
             painter = QPainter(image)
+            painter.setRenderHints(
+                QPainter.RenderHint.Antialiasing
+                | QPainter.RenderHint.TextAntialiasing
+                | QPainter.RenderHint.SmoothPixmapTransform
+            )
             renderer.render(painter, QRectF(0, 0, pixels, pixels))
             painter.end()
             suffix = "@2x" if scale == 2 else ""
-            image.save(str(iconset / f"icon_{size}x{size}{suffix}.png"))
+            if not image.save(str(iconset / f"icon_{size}x{size}{suffix}.png")):
+                raise RuntimeError(f"Failed to save icon at {pixels} pixels")
     subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(resources / "icon.icns")], check=True)
 print(resources / "icon.icns")

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
+from PySide6.QtCore import QAbstractTableModel, QEvent, QModelIndex, Qt, Signal
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView,
@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QSlider, QSplitter, QStackedWidget, QTableView, QVBoxLayout, QWidget,
 )
 
+from remyplayer import __version__
 from remyplayer.domain.library import format_time, group_tracks, track_key
 from remyplayer.domain.queue import PlayMode
 from remyplayer.ui.theme import DEFAULT_THEME, load_theme
@@ -74,6 +75,7 @@ class MainWindow(QMainWindow):
     nextRequested = Signal()
     previousRequested = Signal()
     seekRequested = Signal(int)
+    seekRelativeRequested = Signal(int)
     volumeRequested = Signal(int)
     modeRequested = Signal(str)
     dockRequested = Signal(bool)
@@ -82,7 +84,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self, theme_name=DEFAULT_THEME):
         super().__init__()
-        self.setWindowTitle("RemyPlayer · 0.0.0")
+        self.setWindowTitle(f"RemyPlayer · {__version__}")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.resize(1180, 780)
         self.setMinimumSize(900, 620)
         self.tracks = []
@@ -127,7 +130,7 @@ class MainWindow(QMainWindow):
         brand = QLabel("RemyPlayer")
         brand.setObjectName("brand")
         side.addWidget(brand)
-        caption = QLabel("LOCAL MUSIC / 0.0.0")
+        caption = QLabel(f"LOCAL MUSIC / {__version__}")
         caption.setObjectName("eyebrow")
         side.addWidget(caption)
         side.addSpacing(12)
@@ -160,7 +163,7 @@ class MainWindow(QMainWindow):
         body = QVBoxLayout(content)
         body.setContentsMargins(20, 2, 0, 0)
         body.setSpacing(15)
-        eyebrow = QLabel("YOUR PERSONAL COLLECTION")
+        eyebrow = QLabel("BORN AS A CLASSIC PLAYER")
         eyebrow.setObjectName("eyebrow")
         body.addWidget(eyebrow)
         self.heading = QLabel("音乐库")
@@ -297,6 +300,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(player)
 
     def _shortcuts(self):
+        QApplication.instance().installEventFilter(self)
         for title, shortcut, handler in (
             ("选择音乐库", QKeySequence.StandardKey.Open, self.chooseRequested.emit),
             ("重新扫描", QKeySequence("Ctrl+R"), self.rescanRequested.emit),
@@ -307,13 +311,44 @@ class MainWindow(QMainWindow):
             action.triggered.connect(handler)
             self.addAction(action)
 
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if (isinstance(watched, QWidget)
+                    and (watched is self or self.isAncestorOf(watched))
+                    and self.search.hasFocus()
+                    and watched is not self.search
+                    and not self.search.isAncestorOf(watched)):
+                # Labels and empty backgrounds do not take focus on macOS.
+                # Give the window focus before the clicked control handles it.
+                self.setFocus(Qt.FocusReason.MouseFocusReason)
+            return False
+        if event.type() not in (QEvent.Type.ShortcutOverride, QEvent.Type.KeyPress):
+            return super().eventFilter(watched, event)
+        if not isinstance(watched, QWidget) or not (watched is self or self.isAncestorOf(watched)):
+            return False
+        if isinstance(watched, QLineEdit) or QApplication.activePopupWidget():
+            return False
+        key = event.key()
+        modifiers = event.modifiers()
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            # Cocoa reports even ordinary arrow keys with KeypadModifier.
+            modifiers &= ~Qt.KeyboardModifier.KeypadModifier
+        if modifiers != Qt.KeyboardModifier.NoModifier:
+            return False
+        if key not in (Qt.Key.Key_Space, Qt.Key.Key_Left, Qt.Key.Key_Right):
+            return False
+        event.accept()
+        if event.type() == QEvent.Type.KeyPress:
+            if key == Qt.Key.Key_Space:
+                if not event.isAutoRepeat():
+                    self._play()
+            else:
+                self.seekRelativeRequested.emit(-10000 if key == Qt.Key.Key_Left else 10000)
+        return True
+
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.table.hasFocus():
             self.play_visible()
-            event.accept()
-            return
-        if event.key() == Qt.Key.Key_Space and not self.search.hasFocus():
-            self._play()
             event.accept()
             return
         super().keyPressEvent(event)
