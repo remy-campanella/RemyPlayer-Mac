@@ -6,7 +6,9 @@ from Foundation import NSBundle
 
 
 class ApplicationIcon:
+    """保留含完整分辨率表示的原生 ICNS 图像，避免 Qt 转换造成 Dock 模糊。"""
     def __init__(self, fallback_path):
+        """优先从正式应用包读取 ICNS，源码运行时使用 fallback_path；读取失败引发 RuntimeError。"""
         bundle = NSBundle.mainBundle()
         path = None
         if bundle.bundleIdentifier() == "app.remygrad.remyplayer":
@@ -21,6 +23,7 @@ class ApplicationIcon:
         # this NSImage to a menu-bar size or round-trip it through QPixmap.
 
     def apply(self, force=False):
+        """在 AppKit 主线程应用保留的图像；force 为真时跳过尺寸检查强制刷新 Dock。"""
         application = NSApplication.sharedApplication()
         current = application.applicationIconImage()
         # AppKit's getter can return a raster snapshot rather than our original

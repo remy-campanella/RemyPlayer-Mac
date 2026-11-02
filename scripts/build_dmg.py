@@ -14,6 +14,11 @@ image = root / "dist" / f"RemyPlayer-{version}-macos-{platform.machine()}.dmg"
 
 
 def check_bundle(path):
+    """校验待分发应用的版本、完整签名及资源，不启动播放器界面。
+
+    --version 在创建 QApplication 前退出，因此不会加载媒体或发起播放。
+    版本不符或存在本地图标备份时拒绝打包；外部校验命令失败时直接传播异常。
+    """
     with (path / "Contents" / "Info.plist").open("rb") as source:
         info = plistlib.load(source)
     if info["CFBundleShortVersionString"] != version:

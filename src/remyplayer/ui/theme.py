@@ -16,6 +16,7 @@ DEFAULT_THEME = "black_gold"
 
 @dataclass(frozen=True)
 class Theme:
+    """主题色、QSS 与临时着色图标的共同所有者；持有期间图标文件保持可用。"""
     id: str
     name: str
     dark: bool
@@ -27,6 +28,7 @@ class Theme:
         return QColor(self.colors[role])
 
     def palette(self):
+        """由语义颜色构建 Qt 调色板，覆盖原生控件和禁用状态。"""
         palette = QPalette()
         roles = {
             "Window": "background", "WindowText": "text", "Base": "surface",
@@ -45,6 +47,11 @@ class Theme:
 
 
 def load_theme(name=DEFAULT_THEME):
+    """读取命名 JSON 和共用 QSS，校验后生成可应用的 Theme。
+
+    名称只允许小写字母、数字和下划线；非法名称、颜色或 id 引发 ValueError。
+    图标写入临时目录而非源码或签名应用包，调用方需持有返回对象。
+    """
     if not re.fullmatch(r"[a-z0-9_]+", name):
         raise ValueError(f"Invalid theme name: {name}")
     data = json.loads((THEME_DIRECTORY / f"{name}.json").read_text(encoding="utf-8"))

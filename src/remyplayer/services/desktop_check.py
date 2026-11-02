@@ -8,6 +8,11 @@ from PySide6.QtCore import QTimer
 
 
 def schedule_desktop_check(controller):
+    """安排真实桌面入口检查，立即返回共享的 completed／error 状态字典。
+
+    需要使用独立数据目录的控制器；检查会隐藏／恢复窗口、改变 Dock 偏好，
+    并在完成或失败后退出应用。它不是无界面测试，不启动音频播放。
+    """
     result = {"completed": False, "error": ""}
     initial_icon_sizes = None
 

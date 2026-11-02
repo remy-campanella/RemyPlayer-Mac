@@ -18,6 +18,7 @@ from remyplayer.ui.window import MainWindow
 
 
 def tray_icon():
+    """绘制非 macOS 平台 Qt 托盘使用的模板图标；macOS 使用原生菜单栏入口。"""
     pixmap = QPixmap(36, 36)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
@@ -37,6 +38,10 @@ def tray_icon():
 
 
 class AppController(QObject):
+    """组装界面、服务和持久化设置，并管理菜单栏／Dock 生命周期。
+
+    data_dir 可隔离测试数据；desktop=False 跳过原生桌面集成，便于无界面检查。
+    """
     def __init__(self, application, data_dir=None, desktop=True):
         super().__init__(application)
         self.application = application
@@ -77,6 +82,7 @@ class AppController(QObject):
         self.application.aboutToQuit.connect(self.shutdown)
 
     def _connect(self):
+        """集中连接界面意图和服务状态，避免视图直接承担扫描或播放业务。"""
         window, player, library = self.window, self.playback, self.library
         window.chooseRequested.connect(self.choose_library)
         window.rescanRequested.connect(self.rescan)
@@ -103,6 +109,7 @@ class AppController(QObject):
         library.progress.connect(lambda count, path: window.status.setText(f"已检查 {count} 个音频文件 · {path}"))
 
     def _restore(self):
+        """恢复偏好、窗口位置和缓存曲库；不恢复队列，也不自动播放。"""
         try:
             volume = max(0, min(100, int(self.settings.value("playback/volume", 70))))
         except (ValueError, TypeError):
@@ -123,6 +130,7 @@ class AppController(QObject):
             self.window.rescan.setEnabled(True)
 
     def _desktop_menu(self):
+        """创建菜单栏入口；无法建立入口时保留关闭窗口即退出的兜底行为。"""
         menu = self.window.menuBar().addMenu("文件")
         for title, shortcut, callback in (
             ("选择音乐文件夹…", QKeySequence.StandardKey.Open, self.choose_library),
@@ -168,6 +176,7 @@ class AppController(QObject):
         self.tray.show()
 
     def tray_accessible(self):
+        """判断菜单栏是否存在可用的恢复入口；原生检查失败时按不可用处理。"""
         if self.tray is None:
             return False
         try:
@@ -177,23 +186,26 @@ class AppController(QObject):
             return False
 
     def ensure_background_access(self):
+        """周期校验后台恢复入口；入口丢失时重新显示窗口及 Dock，避免应用失联。"""
         self.sync_dock()
         if not self._shutting_down and not self.window.isVisible() and not self.tray_accessible():
             self.show()
             self.window.status.setText("菜单栏入口不可用，已恢复窗口和 Dock，防止无法找回播放器。")
 
     def install_reopen_handler(self):
+        """启动后注册 Dock／Finder 的 reopen 处理器；重复调用和退出期间忽略。"""
         if self._shutting_down or sys.platform != "darwin" or self.reopen_handler:
             return
         from remyplayer.platform_macos.reopen import ReopenHandler
         self.reopen_handler = ReopenHandler(self.request_show)
 
     def request_show(self):
-        # Finish the native status-menu / AppleEvent callback before changing
-        # activation policy or activating Qt windows.
+        """将原生菜单或 AppleEvent 的窗口恢复请求延迟到下一轮 Qt 事件循环。"""
+        # 先退出原生菜单／AppleEvent 回调，再改变激活策略，避免窗口与 Dock 状态竞态。
         QTimer.singleShot(0, self.show)
 
     def show(self):
+        """恢复主窗口、激活应用并同步 Dock；退出开始后不再显示窗口。"""
         if self._shutting_down:
             return
         if self.desktop:
@@ -209,12 +221,13 @@ class AppController(QObject):
         self.dock_sync.start(200)
 
     def sync_dock(self):
+        """窗口可见时始终显示 Dock；仅关闭窗口后才应用后台保留 Dock 的偏好。"""
         if self.desktop and not self._shutting_down:
-            # A visible (including minimized) main window always owns a Dock
-            # entry. The preference applies only while the window is closed.
+            # 最小化仍属于可见窗口；后台偏好仅在窗口关闭后生效，不能覆盖恢复窗口的动作。
             self._dock(self.window.isVisible() or self.window.keep_dock.isChecked())
 
     def hide_dock(self):
+        """窗口关闭后同步 Dock，并再次检查原生入口；迟到的关闭通知不得隐藏已恢复的 Dock。"""
         if not self.desktop:
             return
         if self.window.isVisible():
@@ -244,6 +257,7 @@ class AppController(QObject):
             self.dock_sync.start(200)
 
     def set_volume(self, volume):
+        """将界面的 0–100 音量转换为应用音频输出的 0–1 音量并保存偏好。"""
         self.playback.output.setVolume(volume / 100)
         self.settings.setValue("playback/volume", volume)
 
@@ -263,6 +277,7 @@ class AppController(QObject):
             self.scan(self.root)
 
     def scan(self, root):
+        """规范化根路径并启动扫描；活动任务存在时忽略请求。"""
         if self.library.task:
             return
         self.scan_root = str(Path(root).expanduser().resolve())
@@ -270,6 +285,7 @@ class AppController(QObject):
         self.library.scan(self.scan_root)
 
     def scanned(self, result):
+        """接收扫描结果并刷新浏览列表；取消时保留原曲库，播放队列不受刷新影响。"""
         if result.cancelled:
             self.window.status.setText("扫描已取消，保留原来的音乐库。")
             self.window.rescan.setEnabled(bool(self.root))
@@ -302,10 +318,12 @@ class AppController(QObject):
         dialog.exec()
 
     def quit(self):
+        """标记显式退出并结束 Qt 事件循环，区别于关闭窗口继续后台播放。"""
         self.window.quitting = True
         self.application.quit()
 
     def shutdown(self):
+        """幂等地保存设置、停止播放、等待扫描退出，并释放原生恢复入口。"""
         if self._shutting_down:
             return
         self._shutting_down = True
@@ -323,6 +341,7 @@ class AppController(QObject):
 
 
 def main(argv=None):
+    """解析命令行并运行 Qt 应用，返回进程退出码；桌面检查未完成时返回 1。"""
     parser = argparse.ArgumentParser(description="RemyPlayer · 本地音乐播放器")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--data-dir", type=Path, help="独立的设置与索引目录")

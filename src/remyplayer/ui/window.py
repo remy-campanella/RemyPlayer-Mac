@@ -1,3 +1,4 @@
+"""Qt Widgets 展示层：管理浏览与交互，通过信号向应用控制器提交操作。"""
 from pathlib import Path
 
 from PySide6.QtCore import QAbstractTableModel, QEvent, QModelIndex, Qt, Signal
@@ -15,6 +16,7 @@ from remyplayer.ui.theme import DEFAULT_THEME, load_theme
 
 
 class TrackModel(QAbstractTableModel):
+    """只展示当前浏览结果；以曲目绝对路径标记播放项，不拥有播放队列。"""
     HEADERS = ("文件名", "曲目标题", "作者", "专辑", "时长")
 
     def __init__(self, parent=None):
@@ -54,11 +56,13 @@ class TrackModel(QAbstractTableModel):
         return None
 
     def replace(self, tracks):
+        """通过模型重置信号整体替换浏览结果，让表格同步更新行数与内容。"""
         self.beginResetModel()
         self.tracks = list(tracks)
         self.endResetModel()
 
     def set_current(self, path):
+        """更新正在播放的路径，仅通知新旧播放项重绘颜色及字体。"""
         previous = self.current_path
         self.current_path = path
         for row, track in enumerate(self.tracks):
@@ -67,6 +71,7 @@ class TrackModel(QAbstractTableModel):
 
 
 class MainWindow(QMainWindow):
+    """构建主窗口并发出用户操作信号；音频、扫描和偏好保存交给控制器。"""
     chooseRequested = Signal()
     rescanRequested = Signal()
     cancelRequested = Signal()
@@ -101,6 +106,11 @@ class MainWindow(QMainWindow):
         self.apply_theme(theme_name)
 
     def apply_theme(self, name):
+        """加载并应用命名主题，更新应用级 QSS、调色板及当前播放项颜色。
+
+        在 GUI 线程调用；保留 Theme 以维持临时图标文件生命周期。
+        主题读取或校验异常向调用方传播，尚无自动文件监听。
+        """
         theme = load_theme(name)
         application = QApplication.instance()
         application.styleHints().setColorScheme(
@@ -312,14 +322,19 @@ class MainWindow(QMainWindow):
             self.addAction(action)
 
     def eventFilter(self, watched, event):
+        """处理本窗口内的焦点释放与播放按键，不影响其他窗口及弹出菜单。
+
+        搜索框内保留文字编辑；点击其外部区域将焦点交还窗口或目标控件。
+        普通左右键忽略 macOS 的 KeypadModifier，真正的组合键不拦截。
+        """
         if event.type() == QEvent.Type.MouseButtonPress:
             if (isinstance(watched, QWidget)
                     and (watched is self or self.isAncestorOf(watched))
                     and self.search.hasFocus()
                     and watched is not self.search
                     and not self.search.isAncestorOf(watched)):
-                # Labels and empty backgrounds do not take focus on macOS.
-                # Give the window focus before the clicked control handles it.
+                # macOS 的标签与空白背景不会主动获取焦点，需要显式释放搜索框。
+                # 不吞掉点击事件，按钮、列表等仍要继续处理本次点击。
                 self.setFocus(Qt.FocusReason.MouseFocusReason)
             return False
         if event.type() not in (QEvent.Type.ShortcutOverride, QEvent.Type.KeyPress):
@@ -331,7 +346,7 @@ class MainWindow(QMainWindow):
         key = event.key()
         modifiers = event.modifiers()
         if key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
-            # Cocoa reports even ordinary arrow keys with KeypadModifier.
+            # Cocoa 将普通方向键也标记为 Keypad；不能因此误判为组合快捷键。
             modifiers &= ~Qt.KeyboardModifier.KeypadModifier
         if modifiers != Qt.KeyboardModifier.NoModifier:
             return False
@@ -354,6 +369,7 @@ class MainWindow(QMainWindow):
         super().keyPressEvent(event)
 
     def set_library(self, root, tracks):
+        """替换浏览曲库并重建分类，不改变当前播放队列。"""
         self.root_path = root
         self.tracks = sorted(tracks, key=track_key)
         self.root_label.setText(Path(root).name)
@@ -361,6 +377,7 @@ class MainWindow(QMainWindow):
         self.rebuild_groups()
 
     def rebuild_groups(self, *_):
+        """重建分类列表，尽可能保留选中分组，再刷新当前浏览结果。"""
         current = self.group_list.currentItem()
         old = current.data(Qt.ItemDataRole.UserRole) if current else None
         self.groups = group_tracks(self.tracks, self.category.currentData())
@@ -383,6 +400,7 @@ class MainWindow(QMainWindow):
         self.refresh_tracks()
 
     def group_display(self, key):
+        """返回显示名和悬停提示；文件夹只显示末级名称，内部键保留完整路径。"""
         if key is None:
             return "全部曲目", "全部曲目"
         if self.category.currentData() == "folder":
@@ -391,6 +409,7 @@ class MainWindow(QMainWindow):
         return key, key
 
     def refresh_tracks(self, *_):
+        """按当前分类和搜索条件刷新表格、标题及空态，不发起播放。"""
         item = self.group_list.currentItem()
         key = item.data(Qt.ItemDataRole.UserRole) if item else None
         tracks = self.tracks if key is None else self.groups.get(key, [])
@@ -409,11 +428,13 @@ class MainWindow(QMainWindow):
             self.empty_text.setText("试试其他关键词。" if query else "扫描此文件夹，或选择另一个音乐库。\n无法识别的文件会列在扫描问题中。")
 
     def play_visible(self):
+        """发出当前可见列表的播放请求；优先选中行，否则从首行开始。"""
         if self.model.tracks:
             row = self.table.currentIndex().row()
             self.playRequested.emit(list(self.model.tracks), max(0, row))
 
     def _play(self):
+        """有播放项时请求切换状态，否则请求从浏览列表开始播放。"""
         if self.model.current_path:
             self.toggleRequested.emit()
         else:
@@ -432,6 +453,7 @@ class MainWindow(QMainWindow):
         self.play_button.setText("暂停" if playing else "播放")
 
     def set_position(self, milliseconds):
+        """更新毫秒播放位置；拖动进度条期间不覆盖用户正在选择的位置。"""
         self._position = milliseconds
         if not self.seek.isSliderDown():
             self.seek.setValue(milliseconds)
@@ -451,6 +473,7 @@ class MainWindow(QMainWindow):
             self.status.setText("正在扫描音乐库…")
 
     def closeEvent(self, event):
+        """允许后台运行时隐藏窗口并通知控制器；显式退出时正常接受关闭。"""
         if not self.quitting and self.allow_hide:
             event.ignore()
             self.hide()

@@ -25,6 +25,7 @@ def rect_contains(outer, inner):
 
 
 class NativeStatusItem:
+    """持有原生菜单栏按钮、菜单和回调目标，独立于 Qt 窗口激活策略。"""
     def __init__(self, show, toggle, previous, next_track, quit_app):
         self.bar = NSStatusBar.systemStatusBar()
         autosave_name = "RemyPlayer.MenuBar"
@@ -98,6 +99,7 @@ class NativeStatusItem:
             self.item.button().setToolTip_(text)
 
     def hide(self):
+        """从系统菜单栏移除入口并清除回调引用；应用退出时调用。"""
         if self.item:
             self.bar.removeStatusItem_(self.item)
             self.item = None
